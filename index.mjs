@@ -1,11 +1,18 @@
 import dotenv from 'dotenv';
 import got from 'got';
 import ToughCookie from 'tough-cookie';
+import telegraf from 'telegraf';
+import LocalSession from 'telegraf-session-local';
 import { promisify } from 'util';
 
+const { Telegraf } = telegraf;
+//const { LocalSession } = TelegrafSessionLocal;
 const { CookieJar } = ToughCookie;
 dotenv.config();
 
+const {
+  TELEGRAM_BOT_TOKEN
+} = process.env;
 const PREFIX_URL = 'https://www.coupang.com';
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.17; rv:84.0) Gecko/20100101 Firefox/84.0';
 
@@ -43,21 +50,30 @@ const getProductInfo = async (url, cookieJar) => {
       return {};
     }
     const {
+      itemName,
+      soldOut,
       productId,
       itemId,
       vendorItemId,
       preOrderVo,
       buyableQuantity,
-      apiUrlMap
+      apiUrlMap,
+      inventory, // almostSoldOut = true일 때 남은 구매가능수량 숫자, false일때 null
+      almostSoldOut
     } = sdp;
-    return {
+    const productInfo = {
+      itemName,
+      soldOut,
       productId,
       itemId,
       vendorItemId,
       isPreOrder: (preOrderVo !== null),
       buyableQuantity,
       apiUrlMap,
+      inventory,
+      almostSoldOut
     };
+    return productInfo;
   } catch (e) {
     console.error(e);
   }
@@ -112,12 +128,115 @@ const getCheckoutURL = async (options, cookieJar) => {
 
 (async () => {
   console.info('start');
-  const cookieJar = new CookieJar();
-  const productInfo = await getProductInfo('vp/products/1944935423?vendorItemId=71289084318', cookieJar);
+  const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+  bot.use((new LocalSession({ database: 'user_session.json' })).middleware());
+  bot.start((ctx) => {
+    const { from } = ctx;
+    // create empty notification list
+    ctx.session.notify = [
+      // {
+      //   productId: 123,
+      //   itemId: 123,
+      //   vendorItemId: 123,
+      //   itemName: '',
+      // },
+      // ...
+    ];
+  });
 
-  console.info('request checkout URL');
-  const url = await getCheckoutURL({
-    ...productInfo,
-  }, cookieJar);
-  console.log(`url: ${url}`);
+  bot.command(['/add', '/add@CoupangStockCheckBot'], async (ctx) => {
+    console.info('got add command');
+    // get url from chat text
+    const text = ctx.message.text.replace(/\/add(@CoupangStockCheckBot)?/, '').toLowerCase();
+    if (!text || text.length < 22) {
+      console.info('- empty text');
+      ctx.reply('Please enter the valid Coupang product URL.');
+      return;
+    }
+    const matches = text.match(/https?:\/\/(www.)?coupang.com\/(vp\/products\/[^\s]+)/);
+    if (!matches || matches.length < 1) {
+      ctx.reply('Please enter valid URL');
+      return;
+    }
+    const path = matches[2];
+    console.log(`path: ${path}`);
+
+    // prepare cookie jar if have one
+    let cookieJar;
+    if (ctx.session.cookieJar) {
+      cookieJar = CookieJar.fromJSON(ctx.session.cookieJar);
+    } else {
+      cookieJar = new CookieJar();
+    }
+
+    // check product info
+    const productInfo = await getProductInfo(path, cookieJar);
+    if (productInfo.productId) {
+      const {
+        productId, itemId, vendorItemId, itemName,
+      } = productInfo;
+      if (productInfo.soldOut) {
+        // check product already registered
+        const isRegistered = ctx.session.notify.filter((item) => item.vendorItemId === vendorItemId).length > 0;
+        // register if it is not registered yet
+        if (!isRegistered) {
+          console.info('- register new product to notify');
+          // save product to notify list
+          ctx.session.notify.push({
+            productId, itemId, vendorItemId, itemName,
+          });
+          // TODO: send product info to global restock check list (with queue worker)
+          ctx.reply('We will notify you when the product is restock.');
+        } else {
+          // already registered
+          console.info('- already registered');
+          ctx.reply('It already registered.');
+        }
+      } else {
+        console.info('- in stock');
+        // get checkout url
+        const checkoutUrl = await getCheckoutURL({
+          ...productInfo,
+        }, cookieJar);
+        ctx.replyWithMarkdown(`In Stock: (${productInfo.vendorItemId}) ${productInfo.itemName} - [Checkout](${checkoutUrl})`);
+      }
+    } else {
+      console.info('- product not found');
+      // product not found
+      ctx.reply('Product not available or removed. Please check the URL is valid.');
+    }
+    // save cookies
+    ctx.session.cookieJar = cookieJar.toJSON();
+  });
+
+  bot.command('/list', (ctx) => {
+    console.info('got list command');
+    // show product list
+    let text = '';
+    ctx.session.notify.forEach((item) => {
+      text += `${item.vendorItemId} - ${item.itemName}\n`;
+    });
+    if (text === '') {
+      // notify list is empty
+      text = 'List is empty';
+    }
+    ctx.reply(text);
+  });
+
+  bot.command('!notify', (ctx) => {
+    console.info('got notify command');
+  });
+
+  bot.on('text', (ctx) => {
+    console.info('got text');
+    // Using context shortcut
+    ctx.reply(`Hello ${ctx.from.username}`)
+  });
+
+  // Handle message update
+  bot.on('message', (ctx) => {
+    return ctx.reply('Hello')
+  });
+
+  bot.launch();
 })();
