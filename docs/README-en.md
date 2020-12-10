@@ -11,4 +11,6 @@ If you are here not to develop, check out [Releases page](https://github.com/SJa
 - It doesn't send us to checkout URL
 
 ## For Development
-(In progress)
+
+If you want to update documents, Please send PR about documents to _doc-update_ branch, NOT _MAIN_.  
+Merging to _MAIN_ from _doc-update_ will all be squashed.
