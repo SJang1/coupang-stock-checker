@@ -273,7 +273,7 @@ const addCommand = async (ctx) => {
     const mobileMatches = input.match(/m\.coupang\.com\/vm\//);
     if (shareMatches && shareMatches.length > 0) {
       // const lptag = input.match(/lptag\=(?<lptag>[A-Z]{3}[0-9]+)/).groups.lptag;
-      const productId = input.match(/productId\=(?<productId>[0-9]+)/).groups.productId;
+      const productId = input.match(/pageKey\=(?<productId>[0-9]+)/).groups.productId;
       // const itemId = input.match(/itemId\=(?<itemId>[0-9]+)/).groups.itemId;
       const vendorItemId = input.match(/vendorItemId\=(?<vendorItemId>[0-9]+)/).groups.vendorItemId;
 
