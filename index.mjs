@@ -159,7 +159,7 @@ const addCommand = async (ctx) => {
 
   // check product info
   const productInfo = await getProductInfo(path, cookieJar);
-  if (productInfo.invalid) {
+  if (!productInfo || productInfo.invalid) {
     // product no longer available
     console.info('- product no longer available');
     ctx.reply('Product no longer available.');
@@ -201,7 +201,8 @@ const addCommand = async (ctx) => {
     if (productInfo.almostSoldOut === true) {
       message += ` ⌛️Almost sold out (${productInfo.inventory} remains)⌛️`;
     }
-    message += `[PC Checkout](${checkoutUrl}) [Mobile Checkout]()`;
+    // TODO: generate mobile checkout URL
+    message += ` [PC Checkout](${checkoutUrl}) [Mobile Checkout]()`;
     ctx.replyWithMarkdown(message);
   }
   // save cookies
@@ -278,7 +279,7 @@ const addCommand = async (ctx) => {
       const vendorItemId = input.match(/vendorItemId\=(?<vendorItemId>[0-9]+)/).groups.vendorItemId;
 
       // assemble request URL
-      path = `https://www.coupang.com/vp/products/${productId}/?vendorItemId=${vendorItemId}`;
+      path = `${PREFIX_URL}/vp/products/${productId}/?vendorItemId=${vendorItemId}`;
     } else if (mobileMatches && mobileMatches.length > 0) {
       path = input.replace('m.coupang.com/vm/', 'www.coupang.com/vp/');
     } else {
@@ -287,11 +288,39 @@ const addCommand = async (ctx) => {
     path = path.replace('https://www.coupang.com/', '');
 
     console.debug({ path });
-    const productInfo = await getProductInfo(path);
-    if (!productInfo || productInfo.invalid) {
-      ctx.reply('Invalid product or no longer available');
+    const cookieJar = new CookieJar();
+    const productInfo = await getProductInfo(path, cookieJar);
+    const {
+      productId, itemId, vendorItemId, itemName, soldOut, invalid,
+    } = productInfo;
+    if (!productId) {
+      // product not found
+      console.info('- product not found');
+      ctx.reply('Product not available or removed. Please check the URL is valid.');
       return;
     }
+    if (invalid) {
+      // product no longer available
+      console.info('- product no longer available');
+      ctx.reply('Product no longer available.');
+      return;
+    }
+    let message = '';
+    if (soldOut) {
+      message = `Out of stock: [${itemName}](${PREFIX_URL}/${path})`;
+    } else {
+      console.info('- in stock');
+      // get checkout url
+      const checkoutUrl = await getCheckoutURL({
+        ...productInfo,
+      }, cookieJar);
+      message = `**👍In stock: [${itemName}](${PREFIX_URL}/${path})**`;
+      if (productInfo.almostSoldOut === true) {
+        message += ` ⌛️Almost sold out (${productInfo.inventory} remains)⌛️`;
+      }
+      message += ` [PC Checkout](${checkoutUrl}) [Mobile Checkout]()`;
+    }
+    ctx.replyWithMarkdown(message);
   });
 
   bot.launch();
