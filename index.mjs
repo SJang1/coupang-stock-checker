@@ -121,7 +121,10 @@ const getCheckoutURL = async (options, cookieJar = undefined) => {
     const json = response.body;
     if (json.orderCheckoutUrl && json.orderCheckoutUrl.requestUrl) {
       console.info('- got url');
-      return json.orderCheckoutUrl.requestUrl;
+      var AppCheckoutUrl = "coupang://checkout?checkoutId=" + json.orderCheckoutUrl.checkoutId + "&item[]=" + vendorItemId + ":" + quantity;
+      var autodetectcheckouturl = "https://sjang1.github.io/Redirect2App/?WebURL=" + encodeURIComponent(json.orderCheckoutUrl.requestUrl) + "&AppURL=" + encodeURIComponent(AppCheckoutUrl);
+      console.log(autodetectcheckouturl);
+      return autodetectcheckouturl;
     }
 
     return null;
@@ -202,7 +205,7 @@ const addCommand = async (ctx) => {
       message += ` ⌛️Almost sold out (${productInfo.inventory} remains)⌛️`;
     }
     // TODO: generate mobile checkout URL
-    message += ` [PC Checkout](${checkoutUrl}) [Mobile Checkout]()`;
+    message += `\n [결제하러 가기](${checkoutUrl})`;
     ctx.replyWithMarkdown(message);
   }
   // save cookies
@@ -318,7 +321,7 @@ const addCommand = async (ctx) => {
       if (productInfo.almostSoldOut === true) {
         message += ` ⌛️Almost sold out (${productInfo.inventory} remains)⌛️`;
       }
-      message += ` [PC Checkout](${checkoutUrl}) [Mobile Checkout]()`;
+      message += `\n [결제하러 가기](${checkoutUrl})`;
     }
     ctx.replyWithMarkdown(message);
   });
