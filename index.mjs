@@ -284,6 +284,7 @@ const addCommand = async (ctx) => {
     } else {
       path = input;
     }
+    path = path.replace('https://www.coupang.com/', '');
 
     console.debug({ path });
     const productInfo = await getProductInfo(path);
