@@ -11,4 +11,4 @@ If you are here not to develop, check out [Releases page](https://github.com/SJa
 - It doesn't send us to checkout URL
 
 ## For Development
-(In progress)
+Check out [DEVELOP.md](./DEVELOP.md)
