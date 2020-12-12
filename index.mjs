@@ -122,7 +122,7 @@ const getCheckoutURL = async (options, cookieJar = undefined) => {
     if (json.orderCheckoutUrl && json.orderCheckoutUrl.requestUrl) {
       console.info('- got url');
       var AppCheckoutUrl = "coupang://checkout?checkoutId=" + json.orderCheckoutUrl.checkoutId + "&item[]=" + vendorItemId + ":" + quantity;
-      var autodetectcheckouturl = "https://sjang1.github.io/Redirect2App/?WebURL=" + encodeURIComponent(json.orderCheckoutUrl.requestUrl) + "&AppURL=" + encodeURIComponent(AppCheckoutUrl);
+      var autodetectcheckouturl = "https://sjang1.github.io/openApp/?fallback=" + encodeURIComponent(json.orderCheckoutUrl.requestUrl) + "&AppURL=" + encodeURIComponent(AppCheckoutUrl);
       console.log(autodetectcheckouturl);
       return autodetectcheckouturl;
     }
